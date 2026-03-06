@@ -1,0 +1,47 @@
+name: Daily Nifty 750 RS Analysis
+
+on:
+  schedule:
+    # Runs at 11:30 AM UTC, which is exactly 5:00 PM IST
+    - cron: '30 11 * * *'
+  workflow_dispatch: # Allows you to manually trigger the run from the Actions tab
+
+permissions:
+  contents: write # Required so the bot can save the CSV files back to your repo
+
+jobs:
+  run-analysis:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # smartapi-python is the official package for SmartConnect
+          pip install pandas yfinance pyotp smartapi-python numpy logzero websocket-client
+
+      - name: Run Python Script
+        env:
+          # Pulling your Angel One credentials securely from GitHub Secrets
+          ANGEL_API_KEY: ${{ secrets.ANGEL_API_KEY }}
+          ANGEL_CLIENT_CODE: ${{ secrets.ANGEL_CLIENT_CODE }}
+          ANGEL_PIN: ${{ secrets.ANGEL_PIN }}
+          ANGEL_TOTP_SECRET: ${{ secrets.ANGEL_TOTP_SECRET }}
+        run: python everyday-returns.py # <-- Change this if your script has a different name
+
+      - name: Commit and Push Updated CSVs
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add historical_db.csv daily_rs_data.csv
+          # The '|| echo' prevents the action from failing if no data changed
+          git commit -m "Automated daily RS update" || echo "No changes to commit"
+          git push
